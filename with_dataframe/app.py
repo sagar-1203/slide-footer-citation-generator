@@ -7,12 +7,12 @@ import pandas as pd
 import ast
 import json
 from io import BytesIO
-from footer_locator_bottom import *
-from footer_space_detector import *
-from footer_orientation_manager import *
+from with_dataframe.footer_locator_bottom import *
+from with_dataframe.footer_space_detector import *
+from with_dataframe.footer_orientation_manager import *
 import requests
-from s3_utils import *
-from utils import *
+from with_dataframe.s3_utils import *
+from with_dataframe.utils import *
 from botocore.exceptions import ClientError
 
 # ========== Logger Configuration ==========
