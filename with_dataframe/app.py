@@ -404,7 +404,7 @@ def process_ppt(uploaded_file, footer_text: str):
                 print("footer shape ",footer_shape_list)
                 max_footer_font_1 = -1
                 max_footer_font_2 = -1
-                resulted_footer_shape = None
+                resulted_footer_shape = None;results=None;add_footer_row_wise1=None;add_footer_row_wise2=None
                 if footer_shape_list:
                     for footer_shape in footer_shape_list:
                         if footer_shape['x'] >= work_area["left"]:
@@ -427,15 +427,19 @@ def process_ppt(uploaded_file, footer_text: str):
                             max_footer_font_2 = resulted_font_size2
                     print("max_footer_font_1, max_footer_font_2 ",max_footer_font_1,max_footer_font_2)
                 if max_footer_font_1 == -1 and max_footer_font_2 == -1:
+                    decision_message = "No footer found"
                     print("No footer found in both slides")
                 elif max_footer_font_1 >= max_footer_font_2:
                     print("font. Use slide 2 As final footer solution")
                     add_final_footer_shape(slide, resulted_footer_shape, footer_config, max_footer_font_1, text_list, add_footer_row_wise1)
+                    decision_message = "Use slide 2 As final footer solution"
                 elif max_footer_font_2 > max_footer_font_1:
                     add_final_footer_shape(slide, results, footer_config, max_footer_font_2, text_list, add_footer_row_wise2)
                     print("font. Use slide 1 As final footer solution")
+                    decision_message = "Use slide 1 As final footer solution"
                 else:
                     print("No solution fount")
+                    decision_message = "No solution found"
                 print("final rendering of slide")
                 # for shape_info in merged_results:
                 #     remove_shapes_by_info(slide,shape_info)
