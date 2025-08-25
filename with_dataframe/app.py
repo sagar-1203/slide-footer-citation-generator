@@ -7,12 +7,12 @@ import pandas as pd
 import ast
 import json
 from io import BytesIO
-from with_dataframe.footer_locator_bottom import *
-from with_dataframe.footer_space_detector import *
-from with_dataframe.footer_orientation_manager import *
+from footer_locator_bottom import *
+from footer_space_detector import *
+from footer_orientation_manager import *
 import requests
-from with_dataframe.s3_utils import *
-from with_dataframe.utils import *
+from s3_utils import *
+from utils import *
 from botocore.exceptions import ClientError
 
 # ========== Logger Configuration ==========
@@ -182,7 +182,7 @@ def add_final_footer_shape(slide, footer_shape, footer_config, font_size, text_l
         equal_width = (footer_shape['width']-5*(len(text_list))) / len(text_list)
         spacing = 0
         for text in text_list:
-            add_rectangle_box(new_slide,footer_shape['x'] + spacing,footer_shape['y'],equal_width,footer_shape['height'],footer_config,text,1,font_size)
+            add_rectangle_box(slide,footer_shape['x'] + spacing,footer_shape['y'],equal_width,footer_shape['height'],footer_config,text,1,font_size)
             spacing += equal_width + 5
         
 
