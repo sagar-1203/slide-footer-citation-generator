@@ -1,47 +1,44 @@
+import pandas as pd
+from app.utils.generate_text_fill_utils.text_fill.format_slides.unpack_slide import unpack_shapes
+
 def find_all_the_shapes(master):
+    """
+    Collect all shapes from a slide master, its parent presentation master, 
+    and its layout slide into DataFrames.
+
+    Args:
+        master (slides.MasterSlide): Slide master object.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+            - all_shapes_df: Shapes directly from the given master.
+            - layout_df_master: Shapes from the presentation master (excluding placeholders).
+            - layout_df: Shapes from the first layout slide.
+    """
     fin = []
     key = 0
 
     for sh in master.shapes:
-        # print(f"Name: {sh.name}")
-        # print(f"Type: {sh.shape_type}")   # returns slides.ShapeType enum
-        # print("------")
         out, key = unpack_shapes(sh, [0], key)
         fin += out
     all_shapes_df = pd.DataFrame(fin)
-#     print("all_shapes_df")
-#     display(all_shapes_df)
     fin = []
     ##Adding Shapes from Master and adding to layout
     for sh in master.presentation.masters[0].shapes:
-        # print(f"Name: {sh.name}")
-        # print(f"Type: {sh.shape_type}")   # returns slides.ShapeType enum
-        # print("------")
         if sh.hidden:
             continue
         out, key = unpack_shapes(sh, [-1], key)
         fin += out
     layout_df_master=pd.DataFrame(fin)
-#     layout_df_master['shape_id'] = layout_df_master['shape_id'] + '[master]'
-#         highlight_shapes_new(layout_df_master,pres,master)
-#     print("layout master dataframe")
-#     display(layout_df_master)
     layout_df_master.to_csv("layout_df_master.csv")
     for index,row in layout_df_master.iterrows():
-        # print("shapee. ", row['shape'])
         if row['shape'].shape.placeholder is not None:
             layout_df_master.drop(index, inplace=True)
     fin=[]
     for sh in master.presentation.layout_slides[0].shapes:
-        # print(f"Name: {sh.name}")
-        # print(f"Type: {sh.shape_type}")   # returns slides.ShapeType enum
-        # print("------")
         out, key = unpack_shapes(sh, [-1], key)
         fin += out
     layout_df = pd.DataFrame(fin)
-#     layout_df['shape_id'] = layout_df['shape_id'] + '[layout_df]'
-#     print("layout dataframe")
-#     display(layout_df)
     return all_shapes_df, layout_df_master,layout_df
 
 def remove_shapes_outside_slide_with_threshold(df, slide_width, slide_height, threshold=5):

@@ -172,23 +172,26 @@ def get_work_area(template_type: str):
     print("work_area:", work_area)
     return work_area, footer_config
 
+
 #  ============= Add final Footer shape ===============
 
 def add_final_footer_shape(slide, footer_shape, footer_config, font_size, text_list, add_footer_row_wise):
     text = "\n".join(text_list)
     if add_footer_row_wise:
-        add_rectangle_box(slide,footer_shape['x'],footer_shape['y'],footer_shape['width'],footer_shape['height'],footer_config,text,1,font_size)
+        add_rectangle_box(slide, footer_shape['x'], footer_shape['y'], footer_shape['width'], footer_shape['height'],
+                          footer_config, text, 1, font_size)
     else:
-        equal_width = (footer_shape['width']-5*(len(text_list))) / len(text_list)
+        equal_width = (footer_shape['width'] - 5 * (len(text_list))) / len(text_list)
         spacing = 0
         for text in text_list:
-            add_rectangle_box(slide,footer_shape['x'] + spacing,footer_shape['y'],equal_width,footer_shape['height'],footer_config,text,1,font_size)
+            add_rectangle_box(slide, footer_shape['x'] + spacing, footer_shape['y'], equal_width,
+                              footer_shape['height'], footer_config, text, 1, font_size)
             spacing += equal_width + 5
-        
 
 
 # ========== Add Superscript References ==========
 from aspose.slides import Portion, PortionFormat
+
 
 def add_superscript_references(slide, text_matches, default_font_size=6, min_font_size=4):
     """
@@ -232,7 +235,7 @@ def add_superscript_references(slide, text_matches, default_font_size=6, min_fon
                     #     last_portion.text += " "
                     # Create superscript
                     superscript = Portion()
-                    superscript.text = f"[{count}]"
+                    superscript.text = f"{count}"
                     count += 1
                     superscript_format = superscript.portion_format
                     superscript_format.escapement = 30
@@ -332,6 +335,87 @@ def s3_key_exists(bucket, key):
     except ClientError:
         return False
 
+def add_footer(slide,work_area, footer_config, MIN_FONT_SIZE=4, MAX_FONT_SIZE=7):
+    decision_message = None
+    if work_area:
+        for slide in original_slides:
+            all_shapes_df, layout_df_master, layout_df = find_all_the_shapes(slide)
+            slide_width = slide.presentation.slide_size.size.width
+            slide_height = slide.presentation.slide_size.size.height
+            print("slide width and height ", slide_width, slide_height)
+            #         find_all_the_shapes(slide)
+            print("initial rendering of slide")
+            # render_ppt(pres,slide)
+            split_y, bottom_shapes, footer_shape_list = add_footer_shape_df(slide, work_area, padding=0,
+                                                                            collision_threshold=2)
+            print("split_y ", split_y)
+            print("footer shape ", footer_shape_list)
+            max_footer_font_1 = -1
+            max_footer_font_2 = -1
+            resulted_footer_shape = None
+            add_footer_row_wise1 = None
+            add_footer_row_wise2 = None
+            results = None
+            if footer_shape_list:
+                for footer_shape in footer_shape_list:
+                    if footer_shape['x'] >= work_area["left"]:
+                        # max_footer_font_1 = min(max_footer_font_1,get_the_max_font_in_column_or_row_wise(new_slide,min_font,max_font,footer_shape,text_list,footer_config))
+                        resulted_font_size1, add_footer_row_wise1 = get_the_max_font_in_column_or_row_wise(slide,
+                                                                                                           MIN_FONT_SIZE,
+                                                                                                           MAX_FONT_SIZE,
+                                                                                                           footer_shape,
+                                                                                                           text_list,
+                                                                                                           footer_config)
+                        #                     max_footer_font_1 = min(max_footer_font_1,resulted_font_size1)
+                        if resulted_font_size1 > max_footer_font_1:
+                            max_footer_font_1 = resulted_font_size1
+                            resulted_footer_shape = footer_shape
+                        # add_rectangle_box(new_slide,footer_shape['x'],footer_shape['y'],footer_shape['width'],footer_shape['height'],footer_config,text,1,font_size)
+            if split_y > work_area["bottom"] + 5:
+                results = find_max_footer_area_df(slide, work_area, split_y, all_shapes_df, layout_df_master,
+                                                  layout_df, min_width=20, min_height=10, max_height=20, )
+                #             results = find_max_footer_area(new_slide_2, work_area,split_y)
+                #         results = find_best_footer_area(slide,work_area["abbvie_aquipta"]["work_area"]["left"], split_y)
+                print("results ", results)
+                if results:
+                    #                 remove_present_footer(slide)
+                    resulted_font_size2, add_footer_row_wise2 = get_the_max_font_in_column_or_row_wise(slide,
+                                                                                                       min_font,
+                                                                                                       max_font,
+                                                                                                       results,
+                                                                                                       text_list,
+                                                                                                       footer_config)
+                    if resulted_font_size2 > max_footer_font_2:
+                        max_footer_font_2 = resulted_font_size2
+                print("max_footer_font_1, max_footer_font_2 ", max_footer_font_1, max_footer_font_2)
+            if max_footer_font_1 == -1 and max_footer_font_2 == -1:
+                print("No footer found in both slides")
+                decision_message = "No footer found in both slides"
+            elif max_footer_font_1 >= max_footer_font_2:
+                print("font. Use slide 2 As final footer solution")
+                add_final_footer_shape(slide, resulted_footer_shape, footer_config, max_footer_font_1, text_list,
+                                       add_footer_row_wise1)
+                decision_message = "Use slide 2 As final footer solution"
+            elif max_footer_font_2 > max_footer_font_1:
+                add_final_footer_shape(slide, results, footer_config, max_footer_font_2, text_list,
+                                       add_footer_row_wise2)
+                print("font. Use slide 1 As final footer solution")
+                decision_message = "Use slide 1 As final footer solution"
+            else:
+                print("No solution fount")
+                decision_message = "No solution found"
+            print("final rendering of slide")
+            # for shape_info in merged_results:
+            #     remove_shapes_by_info(slide,shape_info)
+    else:
+        decision_message = "Work Area not found in template configuration."
+    print("decision_message ", decision_message)
+
+def add_footer_and_citation(slide,work_area, footer_config, MIN_FONT_SIZE=4, MAX_FONT_SIZE=7):
+    add_footer(slide, work_area, footer_config, MIN_FONT_SIZE, MAX_FONT_SIZE)
+    add_superscript_references(slide,input_text["content"])
+    return slide
+
 
 # ========== Processing Logic ==========
 def process_ppt(uploaded_file, footer_text: str):
@@ -392,49 +476,66 @@ def process_ppt(uploaded_file, footer_text: str):
 
         if work_area:
             for slide in original_slides:
-                all_shapes_df, layout_df_master,layout_df = find_all_the_shapes(slide)
+                all_shapes_df, layout_df_master, layout_df = find_all_the_shapes(slide)
                 slide_width = slide.presentation.slide_size.size.width
                 slide_height = slide.presentation.slide_size.size.height
-                print("slide width and height ", slide_width,slide_height)
-        #         find_all_the_shapes(slide)
+                print("slide width and height ", slide_width, slide_height)
+                #         find_all_the_shapes(slide)
                 print("initial rendering of slide")
                 # render_ppt(pres,slide)
-                split_y, bottom_shapes, footer_shape_list = add_footer_shape_df(slide,work_area, padding=0, collision_threshold=2)
+                split_y, bottom_shapes, footer_shape_list = add_footer_shape_df(slide, work_area, padding=0,
+                                                                                collision_threshold=2)
                 print("split_y ", split_y)
-                print("footer shape ",footer_shape_list)
+                print("footer shape ", footer_shape_list)
                 max_footer_font_1 = -1
                 max_footer_font_2 = -1
-                resulted_footer_shape = None;results=None;add_footer_row_wise1=None;add_footer_row_wise2=None
+                resulted_footer_shape = None
+                add_footer_row_wise1 = None
+                add_footer_row_wise2 = None
+                results = None
                 if footer_shape_list:
                     for footer_shape in footer_shape_list:
                         if footer_shape['x'] >= work_area["left"]:
-                            #max_footer_font_1 = min(max_footer_font_1,get_the_max_font_in_column_or_row_wise(new_slide,min_font,max_font,footer_shape,text_list,footer_config))
-                            resulted_font_size1, add_footer_row_wise1 = get_the_max_font_in_column_or_row_wise(slide,min_font,max_font,footer_shape,text_list,footer_config)
-        #                     max_footer_font_1 = min(max_footer_font_1,resulted_font_size1)
+                            # max_footer_font_1 = min(max_footer_font_1,get_the_max_font_in_column_or_row_wise(new_slide,min_font,max_font,footer_shape,text_list,footer_config))
+                            resulted_font_size1, add_footer_row_wise1 = get_the_max_font_in_column_or_row_wise(slide,
+                                                                                                               min_font,
+                                                                                                               max_font,
+                                                                                                               footer_shape,
+                                                                                                               text_list,
+                                                                                                               footer_config)
+                            #                     max_footer_font_1 = min(max_footer_font_1,resulted_font_size1)
                             if resulted_font_size1 > max_footer_font_1:
                                 max_footer_font_1 = resulted_font_size1
                                 resulted_footer_shape = footer_shape
-                            #add_rectangle_box(new_slide,footer_shape['x'],footer_shape['y'],footer_shape['width'],footer_shape['height'],footer_config,text,1,font_size)
+                            # add_rectangle_box(new_slide,footer_shape['x'],footer_shape['y'],footer_shape['width'],footer_shape['height'],footer_config,text,1,font_size)
                 if split_y > work_area["bottom"] + 5:
-                    results = find_max_footer_area_df(slide,work_area,split_y,all_shapes_df,layout_df_master,layout_df,min_width=20,min_height=10,max_height=20,)
-        #             results = find_max_footer_area(new_slide_2, work_area,split_y)
-        #         results = find_best_footer_area(slide,work_area["abbvie_aquipta"]["work_area"]["left"], split_y)
-                    print("results ",results)
+                    results = find_max_footer_area_df(slide, work_area, split_y, all_shapes_df, layout_df_master,
+                                                      layout_df, min_width=20, min_height=10, max_height=20, )
+                    #             results = find_max_footer_area(new_slide_2, work_area,split_y)
+                    #         results = find_best_footer_area(slide,work_area["abbvie_aquipta"]["work_area"]["left"], split_y)
+                    print("results ", results)
                     if results:
-        #                 remove_present_footer(slide)
-                        resulted_font_size2, add_footer_row_wise2 = get_the_max_font_in_column_or_row_wise(slide,min_font,max_font,results,text_list,footer_config)
+                        #                 remove_present_footer(slide)
+                        resulted_font_size2, add_footer_row_wise2 = get_the_max_font_in_column_or_row_wise(slide,
+                                                                                                           min_font,
+                                                                                                           max_font,
+                                                                                                           results,
+                                                                                                           text_list,
+                                                                                                           footer_config)
                         if resulted_font_size2 > max_footer_font_2:
                             max_footer_font_2 = resulted_font_size2
-                    print("max_footer_font_1, max_footer_font_2 ",max_footer_font_1,max_footer_font_2)
+                    print("max_footer_font_1, max_footer_font_2 ", max_footer_font_1, max_footer_font_2)
                 if max_footer_font_1 == -1 and max_footer_font_2 == -1:
-                    decision_message = "No footer found"
                     print("No footer found in both slides")
+                    decision_message = "No footer found in both slides"
                 elif max_footer_font_1 >= max_footer_font_2:
                     print("font. Use slide 2 As final footer solution")
-                    add_final_footer_shape(slide, resulted_footer_shape, footer_config, max_footer_font_1, text_list, add_footer_row_wise1)
+                    add_final_footer_shape(slide, resulted_footer_shape, footer_config, max_footer_font_1, text_list,
+                                           add_footer_row_wise1)
                     decision_message = "Use slide 2 As final footer solution"
                 elif max_footer_font_2 > max_footer_font_1:
-                    add_final_footer_shape(slide, results, footer_config, max_footer_font_2, text_list, add_footer_row_wise2)
+                    add_final_footer_shape(slide, results, footer_config, max_footer_font_2, text_list,
+                                           add_footer_row_wise2)
                     print("font. Use slide 1 As final footer solution")
                     decision_message = "Use slide 1 As final footer solution"
                 else:

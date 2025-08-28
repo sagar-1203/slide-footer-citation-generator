@@ -1,6 +1,7 @@
 import pandas as pd
 from utils import remove_shapes_outside_slide_with_threshold
-
+# from app.utils.generate_text_fill_utils.text_fill.format_slides.collision_utils import get_collision_info_2d
+from utils import remove_shapes_outside_slide, get_collision_info_2d
 
 def _unique_shapes_from_dfs(df1, df2, df3):
     """
@@ -217,6 +218,25 @@ def find_max_footer_area_df(
         min_height=10,
         max_height=20,
 ):
+    """
+    Find the largest available footer area on a slide by analyzing shape collisions 
+    and adjusting a candidate rectangle.
+
+    Args:
+        slide (slides.Slide): Current slide object.
+        work_area (dict): Work area boundaries with 'left', 'right', 'top', 'bottom'.
+        bottom (float | list | tuple): Y-coordinate (or list) marking the footer baseline.
+        all_shapes_df (pd.DataFrame): DataFrame of all shapes in the slide.
+        layout_df_master (pd.DataFrame): Master layout shapes.
+        layout_df (pd.DataFrame): Layout-specific shapes.
+        min_width (float, optional): Minimum footer width. Defaults to 20.
+        min_height (float, optional): Minimum footer height. Defaults to 10.
+        max_height (float, optional): Maximum footer height. Defaults to 20.
+
+    Returns:
+        dict | None: Footer box geometry {"x", "y", "width", "height"} if valid, 
+                     otherwise None.
+    """
     left = work_area["left"]
     right = work_area["right"]
     work_area_top = work_area["top"]
@@ -235,7 +255,7 @@ def find_max_footer_area_df(
     all_shapes_rows = _unique_shapes_from_dfs(all_shapes_df, layout_df_master, layout_df)
     shapes_df = pd.DataFrame(all_shapes_rows)
     print("Unique shapes (after dedupe):", shapes_df.shape)
-    display(shapes_df)
+    # display(shapes_df)
     slide_width = slide.presentation.slide_size.size.width
     slide_height = slide.presentation.slide_size.size.height
 
@@ -249,14 +269,14 @@ def find_max_footer_area_df(
 
     shapes_df = shapes_df[shapes_df.apply(is_relevant, axis=1)]
     print("removing shapes after relevancy check")
-    display(shapes_df)
+    # display(shapes_df)
     shapes_df = remove_shapes_outside_slide_with_threshold(shapes_df, slide_width, slide_height, threshold=1)
     print("removing shapes after outside_slide_with_threshold")
-    display(shapes_df)
+    # display(shapes_df)
     shapes_df = shapes_df.sort_values(by=["bottom"], ascending=False)
 
     print("Filtered shapes for footer proximity:", shapes_df.shape)
-    display(shapes_df)
+    # display(shapes_df)
     ### VERTICAL COLLISION PHASE
     vertical_data = []
     for _, row in shapes_df.iterrows():
@@ -273,7 +293,7 @@ def find_max_footer_area_df(
 
     df_vert = pd.DataFrame(vertical_data)
     print("Vertical collision data:")
-    display(df_vert)
+    # display(df_vert)
 
     tc, bc = 0, 0
     crop_thresh = 0.01
@@ -317,7 +337,7 @@ def find_max_footer_area_df(
 
     df_horiz = pd.DataFrame(horizontal_data)
     print("Horizontal collision data:")
-    display(df_horiz)
+    # display(df_horiz)
 
     lc, rc = 0, 0
     for _, row in df_horiz.iterrows():

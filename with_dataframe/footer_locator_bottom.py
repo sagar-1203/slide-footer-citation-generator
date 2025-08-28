@@ -1,14 +1,13 @@
 import aspose.slides as slides
 from aspose.slides import TextAutofitType
-import aspose.pydrawing as draw
 from aspose.slides import AutoShape
+from app.utils.add_footer_and_citation.utils import find_all_the_shapes
+import pandas as pd
 from utils import remove_shapes_outside_slide, get_collision_info_2d
-
-
 # from app.utils.generate_text_fill_utils.text_fill.format_slides.collision_utils import get_collision_info_2d
 # from app.utils.generate_text_fill_utils.text_fill.format_slides.format_slide import remove_shapes_outside_slide
 
-def add_footer_shape_df(slide, work_area, footer_height=30, padding=0, collision_threshold=2):
+def add_footer_shape_df_old(slide, work_area, footer_height=30, padding=0, collision_threshold=2):
     """
     DataFrame-native version of add_footer_shape. If df_shapes is None, builds it via unpack_shapes.
     Returns: avg_y, bottom_shapes_df, footer_shape_list (same dicts as before)
@@ -27,17 +26,17 @@ def add_footer_shape_df(slide, work_area, footer_height=30, padding=0, collision
     # Normalize missing columns if necessary
     df = df_shapes.copy()
     print("combined df")
-    display(df)
+    # display(df)
     # Filter hidden shapes
     df = df[~df.apply(lambda row: getattr(getattr(row["shape"], "shape", None), "hidden", False), axis=1)]
     print("removing hidden shape df")
-    display(df)
+    # display(df)
     #     df = df[~df.get("hidden", False)]
 
     # Filter shapes entirely above footer_y
     df = df[~((df["top"] + df["height"]) < footer_y)]
     print("removing shapes bottom < footer_y shape df")
-    display(df)
+    # display(df)
     # Skip huge shapes (likely background/title)
     # df = df[df["height"] < slide_height * threshold_height]
     df = df[(df["is_image"]) | (df["height"] < slide_height * threshold_height)]
@@ -48,7 +47,7 @@ def add_footer_shape_df(slide, work_area, footer_height=30, padding=0, collision
         )
     ]
     print("removing shapes height > slide_height*threshold shape df")
-    display(df)
+    # display(df)
     # df = df[~df.apply(lambda row: (row["isfillable"] == False) and (row["is_image"] == False and (row["parent"] == [-1])), axis=1)]
     # print("After removing isfillable and is_image = false shape")
     # display(df)
@@ -65,7 +64,7 @@ def add_footer_shape_df(slide, work_area, footer_height=30, padding=0, collision
         "footnote", "foot", "reference"
     ]
     print("initial dataframe after all the conditions")
-    display(df)
+    # display(df)
     # We'll iterate row-wise because of the complex logic
     for _, row in df.iterrows():
         shape_obj = row['shape'].shape
@@ -138,7 +137,7 @@ def add_footer_shape_df(slide, work_area, footer_height=30, padding=0, collision
     # Convert bottom_shapes list of rows to DataFrame
     bottom_df = pd.DataFrame(bottom_shapes)
     print("initial bottom shapes")
-    display(bottom_df)
+    # display(bottom_df)
     # Remove shapes outside slide bounds (you have a helper; apply it)
     bottom_df = remove_shapes_outside_slide(bottom_df, slide_width, slide_height)  # assume you wrap original function
 
@@ -208,7 +207,7 @@ def add_footer_shape_df(slide, work_area, footer_height=30, padding=0, collision
     # bottom_df = bottom_df.reset_index(drop=True)
 
     print("bottom df")
-    display(bottom_df)
+    # display(bottom_df)
     height_thresh = 7
     # Compute avg_y logic
 
@@ -340,12 +339,259 @@ def add_footer_shape_df(slide, work_area, footer_height=30, padding=0, collision
     return avg_y, bottom_df, footer_shape_list
 
 
+
+def add_footer_shape_df(
+    slide,
+    work_area,
+    footer_height: int = 30,
+    padding: int = 0,
+    collision_threshold: int = 2
+):
+    """
+    DataFrame-native version of `add_footer_shape`.
+
+    Args:
+        slide (aspose.slides.Slide):
+            The PowerPoint slide object to analyze and possibly add a footer to.
+        work_area (dict):
+            A dictionary describing the usable area of the slide. Expected keys:
+            - "left": left boundary (float or int)
+            - "right": right boundary
+            - "top": top boundary
+            - "bottom": bottom boundary
+        footer_height (int, optional):
+            Default footer shape height. Defaults to 30.
+        padding (int, optional):
+            Padding to apply around the footer shape. Currently unused. Defaults to 0.
+        collision_threshold (int, optional):
+            Buffer space used when resolving overlaps with other shapes. Defaults to 2.
+
+    Returns:
+        tuple:
+            avg_y (float):
+                Estimated Y-coordinate (top position) where the footer region starts.
+            bottom_shapes_df (pandas.DataFrame):
+                DataFrame of shapes near the bottom of the slide that influenced footer placement.
+            footer_shape_list (list of dict):
+                Candidate footer shapes (dicts with "x", "y", "width", "height").
+                Usually contains 1 entry if a footer was created or adjusted.
+    """
+    slide_width = slide.presentation.slide_size.size.width
+    slide_height = slide.presentation.slide_size.size.height
+    footer_left = work_area["left"]
+    work_area_right = work_area["right"]
+    footer_y = work_area["bottom"]
+    threshold_height = 0.8
+    threshold_width = 0.85
+
+    all_shapes_df, layout_df_master, layout_df = find_all_the_shapes(slide)
+
+    # Combine shape dataframes
+    df_shapes = pd.concat([all_shapes_df, layout_df_master, layout_df], ignore_index=True)
+    df = df_shapes.copy()
+    print("combined df")
+
+    # Remove hidden shapes
+    df = df[~df.apply(lambda row: getattr(getattr(row["shape"], "shape", None), "hidden", False), axis=1)]
+    print("removing hidden shape df")
+
+    # Filter shapes entirely above footer_y
+    df = df[~((df["top"] + df["height"]) < footer_y)]
+    print("removing shapes bottom < footer_y shape df")
+
+    # Skip very tall shapes (likely background/title), except images
+    df = df[(df["is_image"]) | (df["height"] < slide_height * threshold_height)]
+    df = df[
+        ~(
+            (df["height"] >= 0.99 * slide_height) &
+            (df["width"] >= 0.99 * slide_width)
+        )
+    ]
+    print("removing shapes height > slide_height*threshold shape df")
+
+    # Deduplication + footer detection
+    seen_shapes = set()
+    is_footer_present = False
+    keep_footer_shape_obj = None
+    bottom_shapes = []
+    footer_shape_list = []
+
+    disqualifying_keywords = ["internal use", "copyright", "copy right", "external use"]
+    qualifying_keywords = [
+        "footer", "source goes here", "goes here", "disclaimer place holder", "edit source",
+        "footnote", "foot", "reference"
+    ]
+    print("initial dataframe after all the conditions")
+
+    for _, row in df.iterrows():
+        shape_obj = row['shape'].shape
+        top, height, width, left = row["top"], row["height"], row["width"], row["left"]
+        bottom = top + height
+        shape_key = (left, top, width, height)
+
+        # --- Dedup detection
+        if shape_key in seen_shapes:
+            lower_text = (row.get("lower_case_content") or "")
+            name = ""
+            try:
+                name = getattr(shape_obj, "name", "") or ""
+                name = name.lower()
+            except Exception as e:
+                print("Exception ", str(e))
+
+            if any(keyword in lower_text for keyword in qualifying_keywords):
+                is_footer_present = True
+                keep_footer_shape_obj = shape_obj
+                for s in slide.shapes:
+                    if (
+                        hasattr(s, "x") and hasattr(s, "y") and
+                        hasattr(s, "width") and hasattr(s, "height") and
+                        (s.x, s.y, s.width, s.height) == shape_key
+                    ):
+                        keep_footer_shape_obj = s
+                        print("Removed duplicate shape by coordinates from slide.")
+                        break
+            continue
+
+        seen_shapes.add(shape_key)
+
+        # --- Placeholder/name-based detection
+        placeholder_type, name = None, ""
+        try:
+            placeholder_type = (
+                shape_obj.placeholder.type
+                if hasattr(shape_obj, "placeholder") and shape_obj.placeholder
+                else None
+            )
+            name = getattr(shape_obj, "name", "") or ""
+            name = name.lower()
+        except Exception as e:
+            print("exception ", str(e))
+
+        lower_text = (row.get("lower_case_content") or "")
+
+        if ((placeholder_type == slides.PlaceholderType.FOOTER) or ("footer" in name)):
+            if len(lower_text) == 0 or any(keyword in lower_text for keyword in qualifying_keywords):
+                is_footer_present = True
+                keep_footer_shape_obj = shape_obj
+
+        # --- Fallback heuristic: bottom region
+        if (top > footer_y) or ((bottom > footer_y + 1) and width >= 2 and not row["isfillable"]):
+            if (not is_footer_present) and (shape_obj in slide.shapes) and isinstance(shape_obj, AutoShape):
+                if len(lower_text) == 0 or any(keyword in lower_text for keyword in qualifying_keywords):
+                    is_footer_present = True
+                    keep_footer_shape_obj = shape_obj
+                    print("footer shape found")
+            bottom_shapes.append(row)
+
+    print("is footer present ", is_footer_present)
+
+    # Build bottom_shapes dataframe
+    bottom_df = pd.DataFrame(bottom_shapes)
+    bottom_df = remove_shapes_outside_slide(bottom_df, slide_width, slide_height)
+    bottom_df = bottom_df.sort_values(by="left").reset_index(drop=True)
+
+    # --- Collision filtering
+    if len(bottom_df) >= 2:
+        to_drop = set()
+        for i in range(len(bottom_df)):
+            for j in range(i + 1, len(bottom_df)):
+                row_i = bottom_df.loc[i]
+                row_j = bottom_df.loc[j]
+                collision_info = get_collision_info_2d(row_i['shape'], row_j['shape'])
+                vert, horiz = collision_info['inter_vertical'], collision_info['inter_horizontal']
+
+                if horiz == "Q_ENCLOSED_BY_G_H" and vert != "NONE_V":
+                    to_drop.add(row_i.name)
+                elif horiz == "G_ENCLOSED_BY_Q_H" and vert != "NONE_V":
+                    to_drop.add(row_j.name)
+                elif vert == "Q_ENCLOSED_BY_G_V" and horiz != "NONE_H":
+                    to_drop.add(row_i.name)
+                elif vert == "G_ENCLOSED_BY_Q_V" and horiz != "NONE_H":
+                    to_drop.add(row_j.name)
+
+        if to_drop:
+            bottom_df = bottom_df.drop(list(to_drop)).reset_index(drop=True)
+
+    # --- Average footer Y calculation
+    height_thresh = 7
+    ys = [
+        row["top"] for _, row in bottom_df.iterrows()
+        if row["width"] >= threshold_width * slide_width
+        and row["height"] > height_thresh
+        and row["top"] > footer_y
+    ]
+
+    avg_y = sum(ys) / len(ys) if ys else 0
+
+    # Fallback
+    if avg_y <= 0:
+        filtered_df = bottom_df[(bottom_df["height"] > height_thresh) & (bottom_df["top"] > footer_y)]
+        avg_y = filtered_df["top"].mean() if len(filtered_df) else footer_y
+
+    avg_footer_height = slide_height - avg_y
+
+    # --- Build footer shapes
+    if not is_footer_present:
+        if len(bottom_df) > 1:
+            bottom_df = bottom_df[bottom_df["width"] < slide_width * threshold_width]
+
+        shape_bounds = sorted(
+            [(row["left"], row["left"] + row["width"]) for _, row in bottom_df.iterrows()],
+            key=lambda b: b[0]
+        )
+        shape_bounds.insert(0, (0, 0))
+        shape_bounds.append((slide_width, slide_width))
+
+        max_gap = 20
+        for i in range(len(shape_bounds) - 1):
+            gap_start, gap_end = shape_bounds[i][1], shape_bounds[i + 1][0]
+            gap_width = gap_end - gap_start
+            if gap_width > max_gap:
+                footer_x = gap_start + collision_threshold
+                footer_width = gap_width - 2 * collision_threshold
+                if footer_width >= 30:
+                    computed_footer_y = (
+                        bottom_df[bottom_df["top"] > avg_y]["top"].mean()
+                        if len(bottom_df[bottom_df["top"] > avg_y]) else footer_y
+                    )
+                    footer_shape_list.append({
+                        "width": footer_width,
+                        "height": footer_height,
+                        "x": footer_x,
+                        "y": computed_footer_y
+                    })
+    else:
+        expand_footer_shape(keep_footer_shape_obj, bottom_df, work_area, slide_width, slide_width)
+        footer_shape_list.append({
+            "width": keep_footer_shape_obj.width,
+            "height": keep_footer_shape_obj.height,
+            "x": keep_footer_shape_obj.x,
+            "y": keep_footer_shape_obj.y
+        })
+        if keep_footer_shape_obj in slide.shapes:
+            slide.shapes.remove(keep_footer_shape_obj)
+
+    return avg_y, bottom_df, footer_shape_list
+
+
 def expand_footer_shape(footer_shape, other_rows_df, work_area, slide_width, slide_height,
                         padding=1, max_footer_height=30):
     """
-    Adapted to accept a footer_shape,
-    and other_rows_df where each row has wrapper in 'shape' field (real shape at row['shape'].shape).
-    Mutates the underlying footer shape and prints diagnostics.
+    Expand footer shape vertically and horizontally within available space, 
+    avoiding collisions with other shapes and staying inside work area.
+
+    Args:
+        footer_shape: The Aspose.Slides shape object representing the footer.
+        other_rows_df (pd.DataFrame): DataFrame of other shape wrappers; each row has 'shape', 'top', 'bottom', 'left', 'right'.
+        work_area (dict): Dictionary with 'left' and 'right' boundaries of usable slide area.
+        slide_width (float): Width of the slide.
+        slide_height (float): Height of the slide.
+        padding (int, optional): Extra spacing buffer around the footer. Defaults to 1.
+        max_footer_height (float, optional): Maximum allowed height of the footer. Defaults to 30.
+
+    Returns:
+        None: Mutates `footer_shape` in place (adjusts x, y, width, height).
     """
     print("=== expand_footer_shape called ===")
     print("Initial footer wrapper:", footer_shape)
@@ -424,7 +670,7 @@ def expand_footer_shape(footer_shape, other_rows_df, work_area, slide_width, sli
     work_area_right = work_area["right"]
     print(f"Work area bounds: left={work_area_left}, right={work_area_right}")
     print("before expansion ")
-    display(other_rows_df)
+    # display(other_rows_df)
     # ---------------- Left Expansion ----------------
     # Find all shapes to the left of footer that vertically overlap
     left_candidates = []
