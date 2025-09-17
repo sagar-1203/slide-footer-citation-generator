@@ -220,10 +220,12 @@ def add_footer(slide,work_area, footer_text_list, footer_config, MIN_FONT_SIZE=4
 
     Returns:
         Slide: The slide with the footer added or updated.
+        is_footer_added (bool): True if footer text was added, False otherwise.
     """
     decision_message = None
     new_footer_text = format_input_footer_text(footer_text_list)
     original_slides = [slide]
+    is_footer_added = True
     if work_area:
         for slide in original_slides:
             all_shapes_df, layout_df_master, layout_df = find_all_the_shapes(slide)
@@ -277,6 +279,7 @@ def add_footer(slide,work_area, footer_text_list, footer_config, MIN_FONT_SIZE=4
                 print("max_footer_font_1, max_footer_font_2 ", max_footer_font_1, max_footer_font_2)
             if max_footer_font_1 == -1 and max_footer_font_2 == -1:
                 print("No footer found in both slides")
+                is_footer_added = False
                 decision_message = "No footer found in both slides"
             elif max_footer_font_1 >= max_footer_font_2:
                 print("font. Use slide 2 As final footer solution")
@@ -289,6 +292,7 @@ def add_footer(slide,work_area, footer_text_list, footer_config, MIN_FONT_SIZE=4
                 print("font. Use slide 1 As final footer solution")
                 decision_message = "Use slide 1 As final footer solution"
             else:
+                is_footer_added = False
                 print("No solution fount")
                 decision_message = "No solution found"
             print("final rendering of slide")
@@ -297,9 +301,10 @@ def add_footer(slide,work_area, footer_text_list, footer_config, MIN_FONT_SIZE=4
     else:
         decision_message = "Work Area not found in template configuration."
     print("decision_message ", decision_message)
-    return slide
+    return slide, is_footer_added
 
 def add_footer_and_citation(slide,work_area, footer_text, footer_config, MIN_FONT_SIZE=4, MAX_FONT_SIZE=7):
-    slide = add_footer(slide, work_area, footer_text, footer_config, MIN_FONT_SIZE, MAX_FONT_SIZE)
-    slide = add_citations_as_superscript(slide,input_text["content"])
+    slide, is_footer_added = add_footer(slide, work_area, footer_text, footer_config, MIN_FONT_SIZE, MAX_FONT_SIZE)
+    if is_footer_added:
+        slide = add_citations_as_superscript(slide,input_text["content"])
     return slide

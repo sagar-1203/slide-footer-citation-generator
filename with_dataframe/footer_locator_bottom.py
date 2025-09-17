@@ -550,11 +550,17 @@ def add_footer_shape_df(
             if gap_width > max_gap:
                 footer_x = gap_start + collision_threshold
                 footer_width = gap_width - 2 * collision_threshold
+                if footer_x < footer_left:
+                    print("taking work area x as footer_x ")
+                    footer_width -= (footer_left - footer_x)
+                    footer_x = footer_left
                 if footer_width >= 30:
                     computed_footer_y = (
                         bottom_df[bottom_df["top"] > avg_y]["top"].mean()
                         if len(bottom_df[bottom_df["top"] > avg_y]) else footer_y
                     )
+                    if slide_height - computed_footer_y < footer_height:
+                        computed_footer_y = avg_y
                     footer_shape_list.append({
                         "width": footer_width,
                         "height": footer_height,
