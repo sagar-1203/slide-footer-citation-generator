@@ -1,7 +1,7 @@
 import aspose.slides as slides
 from aspose.slides import TextAutofitType
 from aspose.slides import AutoShape
-from app.utils.add_footer_and_citation.utils import find_all_the_shapes
+from utils import find_all_the_shapes
 import pandas as pd
 from utils import remove_shapes_outside_slide, get_collision_info_2d
 # from app.utils.generate_text_fill_utils.text_fill.format_slides.collision_utils import get_collision_info_2d

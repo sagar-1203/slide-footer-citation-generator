@@ -179,8 +179,75 @@ SCHEME_COLOR_MAP = {
     "CH_FOLLOWED_HYPERLINK": slides.SchemeColor.FOLLOWED_HYPERLINK,
 }
 
-
 def apply_font_color_from_config(portion_format, footer_config):
+    """
+    Apply font color to a text portion based on footer configuration.
+
+    Args:
+        portion_format (slides.PortionFormat): Portion format object to update.
+        footer_config (dict): Configuration containing font_body_color settings.
+
+    Returns:
+        None
+    """
+    color_cfg = footer_config.get("font_body_color", {}) or {}
+    color_type = color_cfg.get("color_type")
+    print(f"\n🎨 Applying font color, color_type={color_type}")
+
+    portion_format.fill_format.fill_type = slides.FillType.SOLID
+
+    if color_type == "CT_SCHEME":
+        # Use scheme color mapping (default: TEXT1)
+        scheme_key = color_cfg.get("scheme_color", "CH_TEXT1")
+        scheme_color = SCHEME_COLOR_MAP.get(scheme_key, slides.SchemeColor.TEXT1)
+        print(f"→ Using scheme color: {scheme_key} ({scheme_color})")
+
+        portion_format.fill_format.solid_fill_color.color_type = slides.ColorType.SCHEME
+        portion_format.fill_format.solid_fill_color.scheme_color = scheme_color
+
+    elif color_type == "CT_RGB":
+        # Parse RGB hex string (default: black)
+        hex_color = color_cfg.get("color_name", "000000").lstrip("#")
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+        print(f"→ Using RGB color: #{hex_color} -> ({r},{g},{b})")
+
+        portion_format.fill_format.solid_fill_color.color_type = slides.ColorType.RGB
+        portion_format.fill_format.solid_fill_color.color = drawing.Color.from_argb(r, g, b)
+
+    elif color_type == "CT_TEXT":
+        # Use inherited default text color
+        print("→ Using CT_TEXT (inheriting default text color).")
+        portion_format.fill_format.solid_fill_color.color_type = slides.ColorType.NOT_DEFINED
+
+    elif color_type == "CT_NONE":
+        # Transparent text
+        print("→ Using CT_NONE (transparent text).")
+        portion_format.fill_format.fill_type = slides.FillType.NO_FILL
+
+    elif color_type == "CT_PRESET":
+        # Named preset color like "Red", "Blue"
+        preset_name = color_cfg.get("color_name", "Black")
+        print(f"→ Using CT_PRESET: {preset_name}")
+        portion_format.fill_format.solid_fill_color.color_type = slides.ColorType.PRESET
+        portion_format.fill_format.solid_fill_color.preset_color = getattr(
+            slides.PresetColor, preset_name.upper(), slides.PresetColor.BLACK
+        )
+
+    else:
+        # Fallback to black
+        print("⚠️ Unknown color_type. Using default black.")
+        portion_format.fill_format.solid_fill_color.color_type = slides.ColorType.RGB
+        portion_format.fill_format.solid_fill_color.color = drawing.Color.black
+
+    # (Optional) if you want to use luminance_score later for adjustments
+    if "luminance_score" in color_cfg:
+        lum = color_cfg["luminance_score"]
+        print(f"ℹ️ Luminance score available: {lum}")
+
+
+def apply_font_color_from_config1(portion_format, footer_config):
     """
     Apply font color to a text portion based on footer configuration.
 

@@ -1,8 +1,7 @@
 import pandas as pd
-from utils import remove_shapes_outside_slide_with_threshold
+from utils import remove_shapes_outside_slide_with_threshold, remove_shapes_outside_slide, get_collision_info_2d
+# from app.utils.add_footer_and_citation.utils import remove_shapes_outside_slide_with_threshold
 # from app.utils.generate_text_fill_utils.text_fill.format_slides.collision_utils import get_collision_info_2d
-from utils import remove_shapes_outside_slide, get_collision_info_2d
-
 def _unique_shapes_from_dfs(df1, df2, df3):
     """
     Iterate df1, df2, df3 in order and return a list of unique underlying shape objects.
