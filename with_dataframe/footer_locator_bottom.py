@@ -314,6 +314,7 @@ def add_footer_shape_df_old(slide, work_area, footer_height=30, padding=0, colli
                 ]
                 print("footer_y_shapes ", footer_y_shapes)
                 computed_footer_y = (sum(footer_y_shapes) / len(footer_y_shapes)) if footer_y_shapes else footer_y
+
                 print(
                     f"footer_width {footer_width},footer_height {avg_footer_height}, footer_x {footer_x} , footer_y {footer_y} ")
                 footer_shape = {
@@ -476,7 +477,8 @@ def add_footer_shape_df(
                 keep_footer_shape_obj = shape_obj
 
         # --- Fallback heuristic: bottom region
-        if (top > footer_y) or ((bottom > footer_y + 1) and width >= 2 and not row["isfillable"]):
+        # if (top > footer_y) or ((bottom > footer_y + 1) and width >= 2 and not row["isfillable"]):
+        if (top > footer_y) and width >= 2 and not row["isfillable"]:
             if (not is_footer_present) and (shape_obj in slide.shapes) and isinstance(shape_obj, AutoShape):
                 if len(lower_text) == 0 or any(keyword in lower_text for keyword in qualifying_keywords):
                     is_footer_present = True
@@ -561,6 +563,14 @@ def add_footer_shape_df(
                     )
                     if slide_height - computed_footer_y < footer_height:
                         computed_footer_y = avg_y
+                    if avg_y > computed_footer_y:
+                        footer_height = min(30, avg_y - computed_footer_y)
+                        if footer_height < 5:
+                            continue
+                    if footer_x + footer_width > work_area_right:
+                        footer_width = work_area_right - footer_x
+                        if footer_width < 30:
+                            continue
                     footer_shape_list.append({
                         "width": footer_width,
                         "height": footer_height,
@@ -584,7 +594,7 @@ def add_footer_shape_df(
 def expand_footer_shape(footer_shape, other_rows_df, work_area, slide_width, slide_height,
                         padding=1, max_footer_height=30):
     """
-    Expand footer shape vertically and horizontally within available space, 
+    Expand footer shape vertically and horizontally within available space,
     avoiding collisions with other shapes and staying inside work area.
 
     Args:

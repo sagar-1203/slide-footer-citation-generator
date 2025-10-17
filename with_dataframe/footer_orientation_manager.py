@@ -18,7 +18,10 @@ def get_the_max_font_in_column_or_row_wise(min_font, max_font, footer_shape, tex
             - add_footer_row_wise: True if row-wise layout chosen, False if column-wise.
     """
     # Prepare text for row-wise arrangement (all sources joined in one line)
-    text = "Sources: " + "; ".join(text_list)
+    if len(text_list) > 1:
+        text = "Sources: " + "; ".join(text_list)
+    else:
+        text = "Sources: " + text_list[0]
 
     # Check row-wise fitting
     status_row, font_size_row = find_largest_fitting_font(
@@ -27,6 +30,7 @@ def get_the_max_font_in_column_or_row_wise(min_font, max_font, footer_shape, tex
     print("Row-wise fitting -> status:", status_row, "font size:", font_size_row)
 
     # Check column-wise fitting (split text across equal width boxes)
+    text_list[0] = "Sources: " + text_list[0]
     equal_width = (footer_shape['width'] - 5 * len(text_list)) / len(text_list)
     max_len_text = max(text_list, key=len)  # Longest text will determine column fitting
     status_column, font_size_column = find_largest_fitting_font(

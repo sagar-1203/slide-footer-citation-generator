@@ -7,6 +7,13 @@ from utils import *
 from aspose.slides import Portion
 
 
+# import aspose.slides as slides
+# from app.utils.add_footer_and_citation.footer_locator_bottom import *
+# from app.utils.add_footer_and_citation.footer_space_detector import *
+# from app.utils.add_footer_and_citation.footer_orientation_manager import *
+# from app.utils.add_footer_and_citation.utils import *
+# from aspose.slides import Portion
+
 ## Sample input text
 input_text = {
     'title': ["Ferrari's Grand Entrance: Roaring into the Indian Luxury Market "],
@@ -28,12 +35,167 @@ input_text = {
         'Expanding Footprint'
     ],
     # 'hub_title': '',
-    # 'graph_data': {},
+    'graph_data': {},
     # 'lang': 'english',
 }
 
+def add_citations_as_superscript(slide, sorted_data, wrap_text=False, default_font_size=6, min_font_size=4):
+    """
+    Add superscript citation indices to matched text in slide shapes.
 
-def add_citations_as_superscript(slide, text_matches, default_font_size=6, min_font_size=4):
+    Args:
+        slide (Slide): PowerPoint slide to process.
+        sorted_data (list[dict]): List of dicts {"id": [<ids>], "data": <text>} to match.
+        default_font_size (int, optional): Default font size for superscripts. Defaults to 6.
+        min_font_size (int, optional): Minimum font size for superscripts. Defaults to 4.
+        wrap_text (bool, optional): Enable text wrap for shapes. Defaults to False.
+
+    Returns:
+        Slide: Slide with superscript citations added.
+    """
+    # Build lookup dict: lowercase text -> list of IDs
+    lookup = {item["data"].lower(): item["id"] if isinstance(item["id"], list) else [item["id"]] for item in sorted_data}
+
+    for shape in slide.shapes:
+        if not hasattr(shape, "text_frame") or shape.text_frame is None:
+            continue
+
+        shape_text_lower = shape.text_frame.text.lower()
+        matched_keys = [k for k in lookup if k in shape_text_lower]
+        if not matched_keys:
+            continue
+
+        paras = shape.text_frame.paragraphs
+        if paras.count == 0:
+            continue
+
+        # Process each matched key (title text)
+        for key in matched_keys:
+            target_para = None
+            for para in paras:
+                if key in para.text.lower():
+                    target_para = para
+                    break
+
+            if target_para is None:
+                target_para = paras[paras.count - 1]  # fallback
+
+            portions = target_para.portions
+            if portions.count == 0:
+                continue
+
+            last_portion = portions[portions.count - 1]
+
+            # Combine IDs (like 1,2,3)
+            superscript_text = ",".join(str(i) for i in lookup[key])
+
+            # Create superscript portion
+            superscript = Portion()
+            superscript.text = superscript_text
+            superscript_format = superscript.portion_format
+            superscript_format.escapement = 30  # superscript
+
+            # Inherit text style from previous portion
+            prev_format = last_portion.portion_format
+            superscript_format.font_height = prev_format.font_height or default_font_size
+            superscript_format.latin_font = prev_format.latin_font
+            superscript.portion_format.fill_format.fill_type = prev_format.fill_format.fill_type
+            superscript.portion_format.fill_format.solid_fill_color.color = (
+                prev_format.fill_format.solid_fill_color.color
+            )
+            superscript.portion_format.font_bold = prev_format.font_bold
+            superscript.portion_format.font_italic = prev_format.font_italic
+            superscript.portion_format.font_underline = prev_format.font_underline
+            superscript.portion_format.east_asian_font = prev_format.east_asian_font
+            superscript.portion_format.complex_script_font = prev_format.complex_script_font
+
+            # Add superscript to text
+            target_para.portions.add(superscript)
+
+            # Optional: enable wrapping/autofit
+            if wrap_text:
+                shape.text_frame.text_frame_format.autofit_type = slides.TextAutofitType.SHAPE
+                shape.text_frame.text_frame_format.wrap_text = slides.NullableBool.TRUE
+
+            break  # stop after first match for this shape
+
+    return slide
+
+def add_citations_as_superscript_latest_2(slide, sorted_data, wrap_text=False, default_font_size=6, min_font_size=4):
+    """
+    Add superscript citation indices to matched text in slide shapes.
+
+    Args:
+        slide (Slide): PowerPoint slide to process.
+        sorted_data (list[dict]): List of dicts {"id": <id>, "data": <text>} to match.
+        default_font_size (int, optional): Default font size for superscripts. Defaults to 6.
+        min_font_size (int, optional): Minimum font size for superscripts. Defaults to 4.
+        wrap_text (bool, optional): Enable text wrap for shapes. Defaults to False.
+
+    Returns:
+        Slide: Slide with superscript citations added.
+    """
+    # Build a lookup: lowercase text -> id
+    lookup = {item["data"].lower(): item["id"] for item in sorted_data}
+
+    for shape in slide.shapes:
+        if not hasattr(shape, "text_frame") or shape.text_frame is None:
+            continue
+
+        shape_text_lower = shape.text_frame.text.lower()
+        matched_keys = [k for k in lookup if k in shape_text_lower]
+        if not matched_keys:
+            continue  # skip shapes with no matches
+
+        paras = shape.text_frame.paragraphs
+        if paras.count == 0:
+            continue
+
+        # Iterate over matched keys
+        for key in matched_keys:
+            target_para = None
+            for para in paras:
+                if key in para.text.lower():
+                    target_para = para
+                    break
+            if target_para is None:
+                target_para = paras[paras.count - 1]  # fallback to last paragraph
+
+            portions = target_para.portions
+            if portions.count == 0:
+                continue
+            last_portion = portions[portions.count - 1]
+
+            # Create superscript with the ID
+            superscript = Portion()
+            superscript.text = str(lookup[key])
+            superscript_format = superscript.portion_format
+            superscript_format.escapement = 30  # superscript
+
+            # Inherit style from previous portion
+            prev_format = last_portion.portion_format
+            superscript_format.font_height = prev_format.font_height or default_font_size
+            superscript_format.latin_font = prev_format.latin_font
+            superscript.portion_format.fill_format.fill_type = prev_format.fill_format.fill_type
+            superscript.portion_format.fill_format.solid_fill_color.color = prev_format.fill_format.solid_fill_color.color
+            superscript.portion_format.font_bold = prev_format.font_bold
+            superscript.portion_format.font_italic = prev_format.font_italic
+            superscript.portion_format.font_underline = prev_format.font_underline
+            superscript.portion_format.east_asian_font = prev_format.east_asian_font
+            superscript.portion_format.complex_script_font = prev_format.complex_script_font
+
+            target_para.portions.add(superscript)
+
+            if wrap_text:
+                shape.text_frame.text_frame_format.autofit_type = slides.TextAutofitType.SHAPE
+                shape.text_frame.text_frame_format.wrap_text = slides.NullableBool.TRUE
+
+            break  # stop after first match in this shape
+
+    return slide
+
+
+def add_citations_as_superscript_last_used(slide, text_matches, wrap_text = False, default_font_size=6, min_font_size=4):
     """
     Add superscript citation indices to matched text in slide shapes.
 
@@ -100,9 +262,9 @@ def add_citations_as_superscript(slide, text_matches, default_font_size=6, min_f
             superscript.portion_format.complex_script_font = prev_format.complex_script_font
 
             target_para.portions.add(superscript)
-
-            shape.text_frame.text_frame_format.autofit_type = slides.TextAutofitType.SHAPE
-            shape.text_frame.text_frame_format.wrap_text = slides.NullableBool.TRUE
+            if wrap_text:
+                shape.text_frame.text_frame_format.autofit_type = slides.TextAutofitType.SHAPE
+                shape.text_frame.text_frame_format.wrap_text = slides.NullableBool.TRUE
 
             break  # stop after first shape containing this match
     return slide
@@ -192,6 +354,7 @@ def add_final_footer_shape(slide, footer_shape, footer_config, font_size, text_l
         add_rectangle_box(slide, footer_shape['x'], footer_shape['y'], footer_shape['width'], footer_shape['height'],
                           footer_config, text, 1, font_size)
     else:
+        text_list[0] = "Sources: " + text_list[0]
         equal_width = (footer_shape['width'] - 5 * (len(text_list))) / len(text_list)
         spacing = 0
         for text in text_list:
@@ -201,9 +364,11 @@ def add_final_footer_shape(slide, footer_shape, footer_config, font_size, text_l
 
 def format_input_footer_text(footer_text_list):
     formatted_list = []
-    for sublist in footer_text_list:
-        for item in sublist:
+    for item in footer_text_list:
+        if item["id"] != -1:
             formatted_list.append(f"{item['id']} - {item['citation']}")
+        else:
+            formatted_list.append(item["citation"])
     return formatted_list
 
 def add_footer(slide,work_area, footer_text_list, footer_config, MIN_FONT_SIZE=4, MAX_FONT_SIZE=7):
@@ -213,14 +378,14 @@ def add_footer(slide,work_area, footer_text_list, footer_config, MIN_FONT_SIZE=4
     Args:
         slide (Slide): PowerPoint slide to add the footer.
         work_area (dict): Dictionary defining the usable slide area (left, bottom, etc.).
-        footer_text_list (list[list[dict]]): Nested list of dictionaries containing "id" and "citation".
+        footer_text_list (list[dict]): Nested list of dictionaries containing "id" and "citation".
         footer_config (dict): Styling configuration for the footer.
         MIN_FONT_SIZE (int, optional): Minimum font size allowed for footer text. Defaults to 4.
         MAX_FONT_SIZE (int, optional): Maximum font size allowed for footer text. Defaults to 7.
 
     Returns:
         Slide: The slide with the footer added or updated.
-        is_footer_added (bool): True if footer text was added, False otherwise.
+        is_footer_added (bool): Whether the slide is footer added or not.
     """
     decision_message = None
     new_footer_text = format_input_footer_text(footer_text_list)
@@ -247,13 +412,13 @@ def add_footer(slide,work_area, footer_text_list, footer_config, MIN_FONT_SIZE=4
             results = None
             if footer_shape_list:
                 for footer_shape in footer_shape_list:
-                    if footer_shape['x'] >= work_area["left"]:
+                    if footer_shape['x'] + 1 >= work_area["left"] and footer_shape['y'] >= work_area["bottom"]:
                         # max_footer_font_1 = min(max_footer_font_1,get_the_max_font_in_column_or_row_wise(new_slide,min_font,max_font,footer_shape,text_list,footer_config))
                         resulted_font_size1, add_footer_row_wise1 = get_the_max_font_in_column_or_row_wise(
                                                                                                            MIN_FONT_SIZE,
                                                                                                            MAX_FONT_SIZE,
                                                                                                            footer_shape,
-                                                                                                           new_footer_text,
+                                                                                                           new_footer_text.copy(),
                                                                                                            )
                         #                     max_footer_font_1 = min(max_footer_font_1,resulted_font_size1)
                         if resulted_font_size1 > max_footer_font_1:
@@ -262,25 +427,25 @@ def add_footer(slide,work_area, footer_text_list, footer_config, MIN_FONT_SIZE=4
                         # add_rectangle_box(new_slide,footer_shape['x'],footer_shape['y'],footer_shape['width'],footer_shape['height'],footer_config,text,1,font_size)
             if split_y > work_area["bottom"] + 5:
                 results = find_max_footer_area_df(slide, work_area, split_y, all_shapes_df, layout_df_master,
-                                                  layout_df, min_width=20, min_height=10, max_height=20, )
+                                                  layout_df, min_width=20, min_height=10, max_height=25, )
                 #             results = find_max_footer_area(new_slide_2, work_area,split_y)
                 #         results = find_best_footer_area(slide,work_area["abbvie_aquipta"]["work_area"]["left"], split_y)
                 print("results ", results)
-                if results:
+                if results and results["y"] > work_area["bottom"]:
                     #                 remove_present_footer(slide)
                     resulted_font_size2, add_footer_row_wise2 = get_the_max_font_in_column_or_row_wise(
                                                                                                        MIN_FONT_SIZE,
                                                                                                        MAX_FONT_SIZE,
                                                                                                        results,
-                                                                                                       new_footer_text,
+                                                                                                       new_footer_text.copy(),
                                                                                                        )
                     if resulted_font_size2 > max_footer_font_2:
                         max_footer_font_2 = resulted_font_size2
                 print("max_footer_font_1, max_footer_font_2 ", max_footer_font_1, max_footer_font_2)
             if max_footer_font_1 == -1 and max_footer_font_2 == -1:
                 print("No footer found in both slides")
-                is_footer_added = False
                 decision_message = "No footer found in both slides"
+                is_footer_added = False
             elif max_footer_font_1 >= max_footer_font_2:
                 print("font. Use slide 2 As final footer solution")
                 add_final_footer_shape(slide, resulted_footer_shape, footer_config, max_footer_font_1, new_footer_text,
@@ -292,9 +457,9 @@ def add_footer(slide,work_area, footer_text_list, footer_config, MIN_FONT_SIZE=4
                 print("font. Use slide 1 As final footer solution")
                 decision_message = "Use slide 1 As final footer solution"
             else:
-                is_footer_added = False
                 print("No solution fount")
                 decision_message = "No solution found"
+                is_footer_added = False
             print("final rendering of slide")
             # for shape_info in merged_results:
             #     remove_shapes_by_info(slide,shape_info)
